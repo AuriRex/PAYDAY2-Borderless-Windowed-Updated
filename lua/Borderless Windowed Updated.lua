@@ -30,6 +30,11 @@ Hooks:PostHook(__classes["Application"], "apply_render_settings", "FullscreenWin
 	FullscreenWindowed.library.change_display_mode(FullscreenWindowed._settings.display_mode, RenderSettings.resolution.x, RenderSettings.resolution.y, RenderSettings.adapter_index)
 end)
 
+Hooks:PreHook(Setup, "quit", "FullscreenWindowOnGameQuit", function(self)
+	Input:mouse():unacquire()
+	Input:mouse():set_deviceless(true)
+end)
+
 Hooks:PostHook(Setup, "init_managers", "FullscreenWindowedInit", function(self, managers)
 	if io.file_is_readable(FullscreenWindowed.save_path) then
 		FullscreenWindowed:load_settings()

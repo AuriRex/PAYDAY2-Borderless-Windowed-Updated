@@ -3,9 +3,13 @@
 #include <windows.h>
 #include <thread>
 #include <vector>
+#include <string>
+//#include <format> // + ~185kb bin size
 
 HWND g_hWnd;
 std::vector<HMONITOR> g_hMonitors;
+bool g_previousFocusState = false;
+int g_currentMode = 0;
 
 #define PAYDAY2_WINDOWED_STYLE (WS_CAPTION | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SYSMENU | WS_MINIMIZEBOX)
 #define PAYDAY2_FULLSCREEN_WINDOWED_STYLE (WS_POPUP | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN)
@@ -57,6 +61,11 @@ int ChangeDisplayMode(lua_State* L)
 	int width = luaL_checkint(L, 2);
 	int height = luaL_checkint(L, 3);
 	int adapter = luaL_checkint(L, 4);
+
+	g_currentMode = mode;
+
+	//PD2HOOK_LOG_LOG(std::format("ChangeDisplayMode: Mode: {}, Width: {}, Height: {}, Adapter: {}", mode, width, height, adapter).c_str());
+	PD2HOOK_LOG_LOG(("ChangeDisplayMode: Mode: " + std::to_string(mode) + ", Width: " + std::to_string(width) + ", Height: " + std::to_string(height) + ", Adapter: " + std::to_string(adapter)).c_str());
 	switch (mode)
 	{
 	case 0:
@@ -71,6 +80,12 @@ int ChangeDisplayMode(lua_State* L)
 		PD2HOOK_LOG_ERROR("Invalid parameter");
 	}
 	return 0;
+}
+
+bool GetWindowFocusState()
+{
+	HWND active = GetForegroundWindow();
+	return active == g_hWnd;
 }
 
 BOOL CALLBACK MonitorEnumProcCallback(HMONITOR hMonitor, HDC hdc, LPRECT lprcMonitor, LPARAM dwData)
@@ -94,6 +109,36 @@ void Plugin_Init()
 
 void Plugin_Update()
 {
+	bool focusState = GetWindowFocusState();
+
+	if (focusState == g_previousFocusState)
+		return;
+
+	g_previousFocusState = focusState;
+
+	//PD2HOOK_LOG_LOG(std::format("Borderless Window: Focus state changed! Focus: {}", focusState).c_str());
+	PD2HOOK_LOG_LOG((std::string("Borderless Window: Focus state changed! Focus: ") + (focusState ? "true" : "false")).c_str());
+
+	// Skip on FUllscreen mode, not needed
+	if (g_currentMode == 0)
+		return;
+
+	if (focusState)
+	{
+		SetCapture(g_hWnd);
+
+		// release the main mouse inputs
+		// prevents most cases for not being able to click on any other window after tabbing out
+		// due to windows thinking you're still holding down the mouse button that you
+		// initially clicked onto the PD2 window with
+		mouse_event(MOUSEEVENTF_LEFTUP | MOUSEEVENTF_MIDDLEUP | MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
+
+		return;
+	}
+
+	ReleaseCapture();
+
+	return;
 }
 
 void Plugin_Setup_Lua(lua_State* L)
