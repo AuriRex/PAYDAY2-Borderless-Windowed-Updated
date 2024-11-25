@@ -88,6 +88,15 @@ bool GetWindowFocusState()
 	return active == g_hWnd;
 }
 
+void ResetMouse(int ms = 0)
+{
+	if (ms > 0)
+	{
+		Sleep(ms);
+	}
+	mouse_event(MOUSEEVENTF_LEFTUP | MOUSEEVENTF_MIDDLEUP | MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
+}
+
 BOOL CALLBACK MonitorEnumProcCallback(HMONITOR hMonitor, HDC hdc, LPRECT lprcMonitor, LPARAM dwData)
 {
 	g_hMonitors.push_back(hMonitor);
@@ -119,24 +128,24 @@ void Plugin_Update()
 	//PD2HOOK_LOG_LOG(std::format("Borderless Window: Focus state changed! Focus: {}", focusState).c_str());
 	PD2HOOK_LOG_LOG((std::string("Borderless Window: Focus state changed! Focus: ") + (focusState ? "true" : "false")).c_str());
 
-	// Skip on FUllscreen mode, not needed
+	// Skip on Fullscreen mode, not needed
 	if (g_currentMode == 0)
 		return;
 
+	ReleaseCapture();
+
 	if (focusState)
 	{
-		SetCapture(g_hWnd);
-
 		// release the main mouse inputs
 		// prevents most cases for not being able to click on any other window after tabbing out
 		// due to windows thinking you're still holding down the mouse button that you
 		// initially clicked onto the PD2 window with
-		mouse_event(MOUSEEVENTF_LEFTUP | MOUSEEVENTF_MIDDLEUP | MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
+		ResetMouse();
 
-		return;
+		SetCapture(g_hWnd);
+
+		std::thread(ResetMouse, 100).detach();
 	}
-
-	ReleaseCapture();
 
 	return;
 }
