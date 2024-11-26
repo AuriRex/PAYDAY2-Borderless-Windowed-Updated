@@ -12,7 +12,8 @@ bool g_previousFocusState = false;
 int g_currentMode = 0;
 
 #define PAYDAY2_WINDOWED_STYLE (WS_CAPTION | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SYSMENU | WS_MINIMIZEBOX)
-#define PAYDAY2_FULLSCREEN_WINDOWED_STYLE (WS_POPUP | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN)
+#define PAYDAY2_FULLSCREEN_WINDOWED_STYLE (WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN)
+#define PAYDAY2_FULLSCREEN_WINDOWED_STYLE_OLD (WS_POPUP | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN)
 
 RECT GetMonitorRect(int adapter)
 {
@@ -94,7 +95,28 @@ void ResetMouse(int ms = 0)
 	{
 		Sleep(ms);
 	}
-	mouse_event(MOUSEEVENTF_LEFTUP | MOUSEEVENTF_MIDDLEUP | MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0);
+
+	DWORD flags = 0;
+
+	if (GetKeyState(VK_RBUTTON) & 0x8000)
+	{
+		flags |= MOUSEEVENTF_RIGHTUP;
+	}
+
+	if (GetKeyState(VK_LBUTTON) & 0x8000)
+	{
+		flags |= MOUSEEVENTF_LEFTUP;
+	}
+
+	if (GetKeyState(VK_MBUTTON) & 0x8000)
+	{
+		flags |= MOUSEEVENTF_MIDDLEUP;
+	}
+
+	if (flags == 0)
+		return;
+
+	mouse_event(flags, 0, 0, 0, 0);
 }
 
 BOOL CALLBACK MonitorEnumProcCallback(HMONITOR hMonitor, HDC hdc, LPRECT lprcMonitor, LPARAM dwData)
