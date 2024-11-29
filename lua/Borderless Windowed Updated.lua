@@ -1,6 +1,7 @@
 FullscreenWindowed = FullscreenWindowed or {}
 
 FullscreenWindowed.mod_path = ModPath
+FullscreenWindowed.focused = false
 FullscreenWindowed.save_path = SavePath .. "FullscreenWindowed.json"
 _, FullscreenWindowed.library = blt.load_native(FullscreenWindowed.mod_path .. "Borderless Windowed Updated.dll")
 
@@ -26,8 +27,54 @@ function FullscreenWindowed:load_settings()
 	end
 end
 
+function FullscreenWindowed:on_update(t,dt)
+	local in_focus = Application:in_focus()
+
+	if (self.focused == in_focus) then
+		return
+	end
+
+	self.focused = in_focus
+	self:OnFocusChanged(in_focus)
+end
+
+function FullscreenWindowed:FocusUpdateNative(focus)
+	local num = 0
+	if focus then
+		num = 1
+	end
+	self.library.focus_update(num)
+end
+
+function FullscreenWindowed:OnFocusChanged(focus)
+	log("[Borderless Windowed] Focus changed: " .. tostring(focus))
+
+	if not focus then
+		Input:mouse():unacquire()
+	end
+
+	self:FocusUpdateNative(focus)
+
+	if focus then
+		Input:mouse():acquire()
+	end
+end
+
 Hooks:PostHook(__classes["Application"], "apply_render_settings", "FullscreenWindowedApplyRenderSettings", function(self)
 	FullscreenWindowed.library.change_display_mode(FullscreenWindowed._settings.display_mode, RenderSettings.resolution.x, RenderSettings.resolution.y, RenderSettings.adapter_index)
+end)
+
+Hooks:PostHook(MenuManager, "update", "FullscreenWindowOnMenuUpdate", function(self,t,dt)
+	--log("Menu update :D")
+	FullscreenWindowed:on_update(t,dt)
+end)
+
+Hooks:PostHook(Setup, "update", "FullscreenWindowOnUpdate", function(self,t,dt)
+	FullscreenWindowed:on_update(t,dt)
+end)
+
+Hooks:PostHook(Setup, "paused_update", "FullscreenWindowOnPausedUpdate", function(self,t,dt)
+	FullscreenWindowed:on_update(t,dt)
 end)
 
 Hooks:PreHook(Setup, "quit", "FullscreenWindowOnGameQuit", function(self)

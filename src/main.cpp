@@ -8,8 +8,11 @@
 
 HWND g_hWnd;
 std::vector<HMONITOR> g_hMonitors;
-bool g_previousFocusState = false;
-int g_currentMode = 0;
+std::atomic<bool> g_previousFocusState = false;
+std::atomic<int> g_currentMode = 0;
+std::atomic<int> g_adapter = 0;
+
+std::atomic<bool> g_focusFromGameReceived;
 
 #define PAYDAY2_WINDOWED_STYLE (WS_CAPTION | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SYSMENU | WS_MINIMIZEBOX)
 #define PAYDAY2_FULLSCREEN_WINDOWED_STYLE (WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN)
@@ -56,39 +59,6 @@ void FullscreenWindowed(int adapter)
 	SetWindowPos(g_hWnd, 0, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_FRAMECHANGED);
 }
 
-int ChangeDisplayMode(lua_State* L)
-{
-	int mode = luaL_checkint(L, 1);
-	int width = luaL_checkint(L, 2);
-	int height = luaL_checkint(L, 3);
-	int adapter = luaL_checkint(L, 4);
-
-	g_currentMode = mode;
-
-	//PD2HOOK_LOG_LOG(std::format("ChangeDisplayMode: Mode: {}, Width: {}, Height: {}, Adapter: {}", mode, width, height, adapter).c_str());
-	PD2HOOK_LOG_LOG(("ChangeDisplayMode: Mode: " + std::to_string(mode) + ", Width: " + std::to_string(width) + ", Height: " + std::to_string(height) + ", Adapter: " + std::to_string(adapter)).c_str());
-	switch (mode)
-	{
-	case 0:
-		break;
-	case 1:
-		std::thread(Windowed, width, height, adapter).detach();
-		break;
-	case 2:
-		std::thread(FullscreenWindowed, adapter).detach();
-		break;
-	default:
-		PD2HOOK_LOG_ERROR("Invalid parameter");
-	}
-	return 0;
-}
-
-bool GetWindowFocusState()
-{
-	HWND active = GetForegroundWindow();
-	return active == g_hWnd;
-}
-
 void ResetMouse(int ms = 0)
 {
 	if (ms > 0)
@@ -119,10 +89,132 @@ void ResetMouse(int ms = 0)
 	mouse_event(flags, 0, 0, 0, 0);
 }
 
+int ChangeDisplayMode(lua_State* L)
+{
+	int mode = luaL_checkint(L, 1);
+	int width = luaL_checkint(L, 2);
+	int height = luaL_checkint(L, 3);
+	int adapter = luaL_checkint(L, 4);
+
+	g_currentMode = mode;
+	g_adapter = adapter;
+
+	//PD2HOOK_LOG_LOG(std::format("ChangeDisplayMode: Mode: {}, Width: {}, Height: {}, Adapter: {}", mode, width, height, adapter).c_str());
+	PD2HOOK_LOG_LOG(("ChangeDisplayMode: Mode: " + std::to_string(mode) + ", Width: " + std::to_string(width) + ", Height: " + std::to_string(height) + ", Adapter: " + std::to_string(adapter)).c_str());
+	switch (mode)
+	{
+	case 0:
+		break;
+	case 1:
+		std::thread(Windowed, width, height, adapter).detach();
+		break;
+	case 2:
+		std::thread(FullscreenWindowed, adapter).detach();
+		break;
+	default:
+		PD2HOOK_LOG_ERROR("Invalid parameter");
+	}
+	return 0;
+}
+
+void OnFocusChanged(bool focus)
+{
+	// Skip on Fullscreen mode, not needed
+	if (g_currentMode == 0)
+		return;
+
+	ReleaseCapture();
+
+	ClipCursor(NULL);
+
+	if (focus)
+	{
+		// release the main mouse inputs
+		// prevents most cases for not being able to click on any other window after tabbing out
+		// due to windows thinking you're still holding down the mouse button that you
+		// initially clicked onto the PD2 window with
+		ResetMouse();
+
+		SetCapture(g_hWnd);
+
+		RECT rect = GetMonitorRect(g_adapter);
+		ClipCursor(&rect);
+	}
+}
+
+int FocusUpdate(lua_State* L)
+{
+	bool focus = (bool)luaL_checkint(L, 1);
+	PD2HOOK_LOG_LOG((std::string("Focus update received from game: ") + (focus ? "true" : "false")).c_str());
+
+	g_focusFromGameReceived = true;
+
+	OnFocusChanged(focus);
+
+	return 0;
+}
+
+bool GetWindowFocusState()
+{
+	HWND active = GetForegroundWindow();
+	return active == g_hWnd;
+}
+
 BOOL CALLBACK MonitorEnumProcCallback(HMONITOR hMonitor, HDC hdc, LPRECT lprcMonitor, LPARAM dwData)
 {
 	g_hMonitors.push_back(hMonitor);
 	return TRUE;
+}
+
+bool g_hasUpdateThread;
+std::thread g_updateThread;
+
+void DoUpdate()
+{
+	bool focusState = GetWindowFocusState();
+
+	if (focusState == g_previousFocusState)
+		return;
+
+	g_previousFocusState = focusState;
+
+	// Skip on Fullscreen mode, not needed
+	if (g_currentMode == 0)
+		return;
+
+	bool receivedPre = g_focusFromGameReceived;
+
+	g_focusFromGameReceived = false;
+
+	Sleep(100);
+
+	bool receivedPost = g_focusFromGameReceived;
+
+	g_focusFromGameReceived = false;
+
+	if (receivedPre || receivedPost)
+	{
+		// State already handled, abort
+		return;
+	}
+
+	// else we are on the loading screen where no update is running apparently :/
+
+	bool focusStateLatest = GetWindowFocusState();
+
+	PD2HOOK_LOG_LOG((std::string("[Borderless Window:UT] Focus state changed without game notification, probably on loading screen. Focus:") + (focusStateLatest ? "true" : "false")).c_str());
+
+	OnFocusChanged(focusStateLatest);
+	if (!focusStateLatest)
+		ResetMouse();
+}
+
+void UpdateThread()
+{
+	while (true) {
+		Sleep(25);
+		DoUpdate();
+	}
 }
 
 void Plugin_Init()
@@ -136,40 +228,19 @@ void Plugin_Init()
 	}
 	EnumDisplayMonitors(NULL, NULL, MonitorEnumProcCallback, NULL);
 	PD2HOOK_LOG_LOG("Borderless Windowed Updated loaded successfully.");
+
+	if (!g_hasUpdateThread)
+	{
+		PD2HOOK_LOG_LOG("Borderless Windowed Updated starting update thread.");
+		g_updateThread = std::thread(UpdateThread);
+		g_updateThread.detach();
+		g_hasUpdateThread = true;
+	}
 }
 
 void Plugin_Update()
 {
-	bool focusState = GetWindowFocusState();
 
-	if (focusState == g_previousFocusState)
-		return;
-
-	g_previousFocusState = focusState;
-
-	//PD2HOOK_LOG_LOG(std::format("Borderless Window: Focus state changed! Focus: {}", focusState).c_str());
-	PD2HOOK_LOG_LOG((std::string("Borderless Window: Focus state changed! Focus: ") + (focusState ? "true" : "false")).c_str());
-
-	// Skip on Fullscreen mode, not needed
-	if (g_currentMode == 0)
-		return;
-
-	ReleaseCapture();
-
-	if (focusState)
-	{
-		// release the main mouse inputs
-		// prevents most cases for not being able to click on any other window after tabbing out
-		// due to windows thinking you're still holding down the mouse button that you
-		// initially clicked onto the PD2 window with
-		ResetMouse();
-
-		SetCapture(g_hWnd);
-
-		std::thread(ResetMouse, 100).detach();
-	}
-
-	return;
 }
 
 void Plugin_Setup_Lua(lua_State* L)
@@ -183,6 +254,9 @@ int Plugin_PushLua(lua_State* L)
 
 	lua_pushcfunction(L, ChangeDisplayMode);
 	lua_setfield(L, -2, "change_display_mode");
+
+	lua_pushcfunction(L, FocusUpdate);
+	lua_setfield(L, -2, "focus_update");
 
 	return 1;
 }
