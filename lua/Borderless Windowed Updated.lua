@@ -27,6 +27,10 @@ function FullscreenWindowed:load_settings()
 	end
 end
 
+function FullscreenWindowed:log(string)
+	log("[Borderless Window] " .. string)
+end
+
 function FullscreenWindowed:on_update(t,dt)
 	local in_focus = Application:in_focus()
 
@@ -47,7 +51,7 @@ function FullscreenWindowed:FocusUpdateNative(focus)
 end
 
 function FullscreenWindowed:OnFocusChanged(focus)
-	log("[Borderless Windowed] Focus changed: " .. tostring(focus))
+	FullscreenWindowed:log("Focus changed: " .. tostring(focus))
 
 	if not focus then
 		Input:mouse():unacquire()
@@ -67,7 +71,7 @@ if __classes["Application"].orig_apply_render_settings == nil then
 end
 
 Hooks:OverrideFunction(__classes["Application"], "apply_render_settings", function(self)
-	log("Overriden Application apply_render_settings called! (Canceled!)")
+	FullscreenWindowed:log("Overriden Application apply_render_settings called! (Canceled!)")
 	--FullscreenWindowed.library.change_display_mode(FullscreenWindowed._settings.display_mode, RenderSettings.resolution.x, RenderSettings.resolution.y, RenderSettings.adapter_index)
 end)
 

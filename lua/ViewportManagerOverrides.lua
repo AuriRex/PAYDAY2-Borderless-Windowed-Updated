@@ -17,7 +17,7 @@ function ViewportManager:apply_queued_render_settings()
         return
     end
 
-    log("Applying queued RenderSettings changes ...")
+    FullscreenWindowed:log("Applying queued RenderSettings changes ...")
 
     local is_resolution_changed = self._render_settings_change_map.resolution ~= nil
 
