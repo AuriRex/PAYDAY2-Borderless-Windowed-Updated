@@ -1,6 +1,6 @@
 {
-	"name" : "Fullscreen Windowed(Borderless Windowed Updated)",
-	"description" : "An updated version of Borderless Windowed plugin.",
+	"name" : "Borderless Window Mod",
+	"description" : "(Fullscreen Window Mod)\n\nAn updated version of the Borderless Window Mod.",
 	"author" : "Shatyuka",
 	"contact" : "https://t.me/Shatyuka",
 	"version" : "2.0",
@@ -8,7 +8,7 @@
 	"priority" : 1,
 	"color" : "255 255 255",
 	"undisablable" : true,
-	"disable_safe_mode" : true
+	"disable_safe_mode" : true,
 	"hooks" : [
 		{
 			"hook_id" : "lib/entry",
