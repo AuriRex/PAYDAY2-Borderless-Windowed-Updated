@@ -117,6 +117,15 @@ int ChangeDisplayMode(lua_State* L)
 	return 0;
 }
 
+
+void CaptureAndClipMouse()
+{
+	SetCapture(g_hWnd);
+
+	RECT rect = GetMonitorRect(g_adapter);
+	ClipCursor(&rect);
+}
+
 void OnFocusChanged(bool focus)
 {
 	// Skip on Fullscreen mode, not needed
@@ -135,10 +144,7 @@ void OnFocusChanged(bool focus)
 		// initially clicked onto the PD2 window with
 		ResetMouse();
 
-		SetCapture(g_hWnd);
-
-		RECT rect = GetMonitorRect(g_adapter);
-		ClipCursor(&rect);
+		CaptureAndClipMouse();
 	}
 }
 

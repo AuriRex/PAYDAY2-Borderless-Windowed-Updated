@@ -60,13 +60,15 @@ function FullscreenWindowed:OnFocusChanged(focus)
 	end
 end
 
-Hooks:PostHook(__classes["Application"], "apply_render_settings", "FullscreenWindowedApplyRenderSettings", function(self)
-	FullscreenWindowed.library.change_display_mode(FullscreenWindowed._settings.display_mode, RenderSettings.resolution.x, RenderSettings.resolution.y, RenderSettings.adapter_index)
-end)
 
-Hooks:PostHook(MenuManager, "update", "FullscreenWindowOnMenuUpdate", function(self,t,dt)
-	--log("Menu update :D")
-	FullscreenWindowed:on_update(t,dt)
+-- Copy the original and prevent the game from calling it.
+if __classes["Application"].orig_apply_render_settings == nil then
+	__classes["Application"].orig_apply_render_settings = __classes["Application"].apply_render_settings
+end
+
+Hooks:OverrideFunction(__classes["Application"], "apply_render_settings", function(self)
+	log("Overriden Application apply_render_settings called! (Canceled!)")
+	--FullscreenWindowed.library.change_display_mode(FullscreenWindowed._settings.display_mode, RenderSettings.resolution.x, RenderSettings.resolution.y, RenderSettings.adapter_index)
 end)
 
 Hooks:PostHook(Setup, "update", "FullscreenWindowOnUpdate", function(self,t,dt)
@@ -110,12 +112,18 @@ Hooks:PostHook(MenuOptionInitiator, "modify_video", "FullscreenWindowedDisplayMo
 		end
 
 		managers.viewport:set_fullscreen(choice == 0)
+
+		managers.viewport:set_apply_render_settings_flag()
+		
 		FullscreenWindowed.library.change_display_mode(choice, RenderSettings.resolution.x, RenderSettings.resolution.y, RenderSettings.adapter_index)
 		local old_display_mode = FullscreenWindowed._settings.display_mode
 		FullscreenWindowed._settings.display_mode = choice
 		FullscreenWindowed:save_settings()
 		managers.menu:show_accept_gfx_settings_dialog(function ()
 			managers.viewport:set_fullscreen(old_display_mode == 0)
+
+			managers.viewport:set_apply_render_settings_flag()
+
 			FullscreenWindowed.library.change_display_mode(old_display_mode, RenderSettings.resolution.x, RenderSettings.resolution.y, RenderSettings.adapter_index)
 			FullscreenWindowed._settings.display_mode = old_display_mode
 			FullscreenWindowed:save_settings()
