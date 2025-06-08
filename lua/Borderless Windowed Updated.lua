@@ -72,7 +72,6 @@ end
 
 Hooks:OverrideFunction(__classes["Application"], "apply_render_settings", function(self)
 	FullscreenWindowed:log("Overriden Application apply_render_settings called! (Canceled!)")
-	--FullscreenWindowed.library.change_display_mode(FullscreenWindowed._settings.display_mode, RenderSettings.resolution.x, RenderSettings.resolution.y, RenderSettings.adapter_index)
 end)
 
 Hooks:PostHook(Setup, "update", "FullscreenWindowOnUpdate", function(self,t,dt)
@@ -94,7 +93,9 @@ Hooks:PostHook(Setup, "init_managers", "FullscreenWindowedInit", function(self, 
 		FullscreenWindowed.library.change_display_mode(FullscreenWindowed._settings.display_mode, RenderSettings.resolution.x, RenderSettings.resolution.y, RenderSettings.adapter_index)
 	else
 		FullscreenWindowed._settings.display_mode = managers.viewport:is_fullscreen() and 0 or 1
+		FullscreenWindowed.library.change_display_mode(FullscreenWindowed._settings.display_mode, RenderSettings.resolution.x, RenderSettings.resolution.y, RenderSettings.adapter_index)
 	end
+	managers.viewport:do_apply_render_settings()
 end)
 
 Hooks:PostHook(MenuOptionInitiator, "modify_video", "FullscreenWindowedDisplayMode", function(self, node)
@@ -117,16 +118,18 @@ Hooks:PostHook(MenuOptionInitiator, "modify_video", "FullscreenWindowedDisplayMo
 
 		managers.viewport:set_fullscreen(choice == 0)
 
-		managers.viewport:set_apply_render_settings_flag()
+		managers.viewport:do_apply_render_settings()
 		
 		FullscreenWindowed.library.change_display_mode(choice, RenderSettings.resolution.x, RenderSettings.resolution.y, RenderSettings.adapter_index)
+		
 		local old_display_mode = FullscreenWindowed._settings.display_mode
 		FullscreenWindowed._settings.display_mode = choice
 		FullscreenWindowed:save_settings()
+
 		managers.menu:show_accept_gfx_settings_dialog(function ()
 			managers.viewport:set_fullscreen(old_display_mode == 0)
 
-			managers.viewport:set_apply_render_settings_flag()
+			managers.viewport:do_apply_render_settings()
 
 			FullscreenWindowed.library.change_display_mode(old_display_mode, RenderSettings.resolution.x, RenderSettings.resolution.y, RenderSettings.adapter_index)
 			FullscreenWindowed._settings.display_mode = old_display_mode
@@ -192,11 +195,13 @@ function MenuCallbackHandler:change_resolution(item)
 
 	managers.viewport:set_resolution(item:parameters().resolution)
 	managers.viewport:set_aspect_ratio(item:parameters().resolution.x / item:parameters().resolution.y)
+	managers.viewport:do_apply_render_settings()
 	FullscreenWindowed.library.change_display_mode(FullscreenWindowed._settings.display_mode, item:parameters().resolution.x, item:parameters().resolution.y, RenderSettings.adapter_index)
-
+	
 	local function on_decline()
 		managers.viewport:set_resolution(old_resolution)
 		managers.viewport:set_aspect_ratio(old_resolution.x / old_resolution.y)
+		managers.viewport:do_apply_render_settings()
 		FullscreenWindowed.library.change_display_mode(FullscreenWindowed._settings.display_mode, old_resolution.x, old_resolution.y, RenderSettings.adapter_index)
 	end
 

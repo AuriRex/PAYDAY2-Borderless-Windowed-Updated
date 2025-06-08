@@ -1,23 +1,17 @@
 core:module("CoreViewportManager")
-core:import("CoreApp")
-core:import("CoreCode")
-core:import("CoreEvent")
-core:import("CoreManagerBase")
-core:import("CoreScriptViewport")
-core:import("CoreEnvironmentManager")
 
-require("lib/managers/hud/hudpresenter")
-
-function ViewportManager:set_apply_render_settings_flag()
-    self._has_applied_queued_settings = false
+function ViewportManager:do_apply_render_settings()
+    self._apply_queued_settings = true
 end
 
+-- This function is at the start of `ViewportManager:end_frame` in the original code
+-- We extract it to control when to actually apply the settings
 function ViewportManager:apply_queued_render_settings()
     if self._render_settings_change_map == nil then
         return
     end
 
-    FullscreenWindowed:log("Applying queued RenderSettings changes ...")
+    log("[Borderless Window] Applying queued RenderSettings changes ...")
 
     local is_resolution_changed = self._render_settings_change_map.resolution ~= nil
 
@@ -33,16 +27,12 @@ function ViewportManager:apply_queued_render_settings()
     if is_resolution_changed then
         self:resolution_changed()
     end
-
-    -- NOTE:
-    -- Do not call our own `FullscreenWindowed.library.change_display_mode` here
-    -- or the game dies completely and crashes
 end
 
 function ViewportManager:end_frame(t, dt)
-    if not self._has_applied_queued_settings or self._has_applied_queued_settings == nil then
+    if self._apply_queued_settings == true then
         self:apply_queued_render_settings()
-        self._has_applied_queued_settings = true
+        self._apply_queued_settings = false
     end
 
     self._current_camera = nil

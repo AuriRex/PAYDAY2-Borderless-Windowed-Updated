@@ -47,16 +47,26 @@ void Windowed(int width, int height, int adapter)
 		rect.left = (screen_width - window_width) / 2;
 	if (screen_height >= window_height)
 		rect.top = (screen_height - window_height) / 2;
-	SetWindowPos(g_hWnd, HWND_NOTOPMOST, rect.left, rect.top, window_width, window_height, SWP_FRAMECHANGED);
+	SetWindowPos(g_hWnd, HWND_TOP, rect.left, rect.top, window_width, window_height, SWP_FRAMECHANGED);
 }
 
-void FullscreenWindowed(int adapter)
+void FullscreenWindowed(int width, int height, int adapter)
 {
-	Sleep(100);
+	//Sleep(100);
 	SetWindowLong(g_hWnd, GWL_STYLE, PAYDAY2_FULLSCREEN_WINDOWED_STYLE);
 	SetWindowLong(g_hWnd, GWL_EXSTYLE, 0);
-	RECT rect = GetMonitorRect(adapter);
-	SetWindowPos(g_hWnd, 0, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_FRAMECHANGED);
+	RECT rect{ 0, 0, width, height };
+	//AdjustWindowRectEx(&rect, PAYDAY2_WINDOWED_STYLE, FALSE, WS_EX_OVERLAPPEDWINDOW);
+	const int window_width = rect.right - rect.left;
+	const int window_height = rect.bottom - rect.top;
+	rect = GetMonitorRect(adapter);
+	const int screen_width = rect.right - rect.left;
+	const int screen_height = rect.bottom - rect.top;
+	if (screen_width >= window_width)
+		rect.left = (screen_width - window_width) / 2;
+	if (screen_height >= window_height)
+		rect.top = (screen_height - window_height) / 2;
+	SetWindowPos(g_hWnd, HWND_TOP, rect.left, rect.top, window_width, window_height, SWP_FRAMECHANGED);
 }
 
 void ResetMouse(int ms = 0)
@@ -109,7 +119,7 @@ int ChangeDisplayMode(lua_State* L)
 		std::thread(Windowed, width, height, adapter).detach();
 		break;
 	case 2:
-		std::thread(FullscreenWindowed, adapter).detach();
+		std::thread(FullscreenWindowed, width, height, adapter).detach();
 		break;
 	default:
 		PD2HOOK_LOG_ERROR("Invalid parameter");
